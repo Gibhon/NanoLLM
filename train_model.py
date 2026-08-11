@@ -28,7 +28,7 @@ if __name__ == "__main__":
     NUM_FEEDFORWARD = EMBEDDING_DIMENSION * 4
     BATCH_SIZE = 32
     NUM_WORKERS = 4
-    SEQ_LEN = 128
+    BLOCK_SIZE = 128
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     EPOCHS = 6
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     tokenizer = CharTokenizer(data)
     token_ids = tokenizer.encode(data)
 
-    dataset = NanoLLMDataset(token_ids, SEQ_LEN)
+    dataset = NanoLLMDataset(token_ids, BLOCK_SIZE)
     train_size = int(0.9 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = random_split(
@@ -71,6 +71,7 @@ if __name__ == "__main__":
         n_heads=NUM_ATTENTION_HEADS,
         n_layers=NUM_LAYERS,
         n_feedforward=NUM_FEEDFORWARD,
+        block_size = BLOCK_SIZE,
         dropout=DROPOUT,
     ).to(DEVICE)
 
