@@ -1,11 +1,9 @@
-from typing import Any
-
 import torch
 import torch.nn as nn
 
 
 class NanoLLM(nn.Module):
-    def __init__(self, tokenizer, embed_dim, n_heads, n_layers, n_feedforward, dropout) -> None:
+    def __init__(self, tokenizer, embed_dim, n_heads, n_layers, n_feedforward, block_size, dropout) -> None:
         super().__init__()
 
         vocab_size = tokenizer.vocab_size
@@ -13,6 +11,7 @@ class NanoLLM(nn.Module):
         self.embedding = nn.Embedding(
             embedding_dim=embed_dim, num_embeddings=vocab_size
         )
+        self.pos_embedding = nn.Embedding(embedding_dim=embed_dim, num_embeddings=block_size)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embed_dim,
             nhead=n_heads,
@@ -30,8 +29,14 @@ class NanoLLM(nn.Module):
         causal_mask = nn.Transformer.generate_square_subsequent_mask(
             seq_len, device=token_ids.device
         )
-        embeded_tokens = self.embedding(token_ids)
+
+        positions = torch.arange(seq_len, device=token_ids.device)
+        pos_embed = self.pos_embedding(positions)
+
+        embed_tokens = self.embedding(token_ids)
+        embed_tokens = embed_tokens + pos_embed
+
         transformer_output = self.transformer(
-            embeded_tokens, mask=causal_mask, is_causal=True
+            embed_tokens, mask=causal_mask, is_causal=True
         )
         return self.output_ll(transformer_output)
