@@ -105,4 +105,26 @@ class TransformerBlockScratch(nn.Module):
         return x
 
 
-    
+class NanoLLMScratch(nn.Module):
+    def __init__(self, tokenizer, max_seq_len, embed_dim, n_heads, n_layers):
+        super().__init__()
+        self.max_seq_len = max_seq_len
+        vocab_size = tokenizer.vocab_size
+
+        self.embedding = TransformerEmbeddingScratch(vocab_size=vocab_size, embed_dim=embed_dim, max_seq_len=max_seq_len)
+        self.blocks = nn.ModuleList([TransformerBlockScratch(embed_dim, n_heads) for _ in range(n_layers)])
+        self.ln = nn.LayerNorm(embed_dim)
+        self.lang_modeling_head = nn.Linear(embed_dim, vocab_size)
+
+    def forward(self, x):
+        seq_len = x.size()[1]
+        assert seq_len <= self.max_seq_len, f"Sequence Length{seq_len} exceeds max{self.max_seq_len}"
+
+        x = self.embedding(x)
+        for block in self.blocks:
+            x = block(x)
+
+        x = self.ln(x)
+        logits = self.lang_modeling_head(x)
+
+        return logits
