@@ -11,4 +11,3 @@ class CharTokenizer():
 
     def decode(self, token_ids):
         return [self.int_to_str.get(i, "") for i in token_ids]
-
