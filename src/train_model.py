@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import random_split, DataLoader
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
@@ -7,9 +7,8 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 import sys
 from pathlib import Path
 
-SRC_PATH = Path(__file__).resolve().parent / "src"
+SRC_PATH = Path(__file__).resolve()
 
-sys.path.append(str(SRC_PATH))
 from train import train_and_val, plot_model_comparison  # type: ignore
 
 sys.path.append(str(SRC_PATH / "models"))
@@ -39,7 +38,7 @@ if __name__ == "__main__":
     DROPOUT_pytorch = 0.2
     DROPOUT_scratch = 0.3
     WEIGHT_DECAY = 0.05
-    DATA_PATH = Path(__file__).resolve().parent / "data"
+    DATA_PATH = Path(__file__).resolve().parent.parent / "data"
 
     # ---Data---
     data = clean_data(DATA_PATH / "data.txt")
@@ -137,7 +136,7 @@ if __name__ == "__main__":
         min_train_loss_scratch=min_train_loss_scratch,
         min_val_loss_scratch=min_val_loss_scratch,
         time_scratch=time_scratch,
-        graph_path=Path(__file__).resolve().parent / "data" / "model_comparison6.png",
+        graph_path=DATA_PATH / "model_comparison6.png",
     )
 
     print("PYTORCH MODEL STATS:")
