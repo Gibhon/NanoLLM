@@ -1,7 +1,8 @@
 import math
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 #
 # -------This Works but is too memory inefficient :(-------
@@ -64,9 +65,9 @@ class TransformerEmbeddingScratch(nn.Module):
 class AttentionScratch(nn.Module):
     def __init__(self, embed_dim, n_heads, dropout):
         super().__init__()
-        assert (
-            embed_dim % n_heads == 0
-        ), "Embedding dimension must be divisible by n_heads"
+        assert embed_dim % n_heads == 0, (
+            "Embedding dimension must be divisible by n_heads"
+        )
 
         self.n_heads = n_heads
         self.head_dim = embed_dim // n_heads
@@ -120,10 +121,12 @@ class FeedForwardScratch(nn.Module):
 
 
 class TransformerBlockScratch(nn.Module):
-    def __init__(self, embed_dim, n_heads,dropout):
+    def __init__(self, embed_dim, n_heads, dropout):
         super().__init__()
         self.ln1 = nn.LayerNorm(embed_dim)
-        self.attention = AttentionScratch(embed_dim=embed_dim, n_heads=n_heads, dropout=dropout)
+        self.attention = AttentionScratch(
+            embed_dim=embed_dim, n_heads=n_heads, dropout=dropout
+        )
         self.ln2 = nn.LayerNorm(embed_dim)
         self.feedforward = FeedForwardScratch(embed_dim, 4, dropout=dropout)
 
@@ -137,22 +140,26 @@ class NanoLLMScratch(nn.Module):
     def __init__(self, tokenizer, max_seq_len, embed_dim, n_heads, n_layers, dropout):
         super().__init__()
         self.max_seq_len = max_seq_len
+        self.tokenizer = tokenizer
         vocab_size = tokenizer.vocab_size
 
         self.embedding = TransformerEmbeddingScratch(
             vocab_size=vocab_size, embed_dim=embed_dim, max_seq_len=max_seq_len
         )
         self.blocks = nn.ModuleList(
-            [TransformerBlockScratch(embed_dim, n_heads, dropout=dropout) for _ in range(n_layers)]
+            [
+                TransformerBlockScratch(embed_dim, n_heads, dropout=dropout)
+                for _ in range(n_layers)
+            ]
         )
         self.ln = nn.LayerNorm(embed_dim)
         self.lang_modeling_head = nn.Linear(embed_dim, vocab_size)
 
     def forward(self, x):
         seq_len = x.size()[1]
-        assert (
-            seq_len <= self.max_seq_len
-        ), f"Sequence Length{seq_len} exceeds max{self.max_seq_len}"
+        assert seq_len <= self.max_seq_len, (
+            f"Sequence Length{seq_len} exceeds max{self.max_seq_len}"
+        )
 
         x = self.embedding(x)
         for block in self.blocks:
@@ -167,26 +174,27 @@ class NanoLLMScratch(nn.Module):
     def generate(
         self,
         prompt,
-        tokenizer,
         max_new_tokens: int,
         sampling_temperature: float = 1.0,
-        top_k_candidate_count:int=None,                #type:ignore
+        top_k_candidate_count=None,  # type:ignore
         max_context_size: int = 128,
     ):
         self.eval()
         device = next(self.parameters()).device
 
-        encoded_token_ids = tokenizer.encode(prompt)
+        encoded_token_ids = self.tokenizer.encode(prompt)
 
         if isinstance(encoded_token_ids, torch.Tensor):
             token_ids_tensor = encoded_token_ids.to(device)
-            if token_ids_tensor.ndim==1:
+            if token_ids_tensor.ndim == 1:
                 token_ids_tensor = token_ids_tensor.unsqueeze(dim=0)
         else:
-            token_ids_tensor = torch.tensor(data=encoded_token_ids, dtype=torch.long, device=device).unsqueeze(dim=0)
+            token_ids_tensor = torch.tensor(
+                data=encoded_token_ids, dtype=torch.long, device=device
+            ).unsqueeze(dim=0)
 
         for steps in range(max_new_tokens):
-            if(token_ids_tensor.size(dim=1) <= max_context_size):
+            if token_ids_tensor.size(dim=1) <= max_context_size:
                 context_index_tensor = token_ids_tensor
             else:
                 context_index_tensor = token_ids_tensor[:, -max_context_size:]
@@ -196,12 +204,37 @@ class NanoLLMScratch(nn.Module):
 
             if top_k_candidate_count is not None:
                 v, _ = torch.topk(logits, min(top_k_candidate_count, logits.size(-1)))
-                logits[logits < v[:, [-1]]] = -float('inf')
+                logits[logits < v[:, [-1]]] = -float("inf")
 
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)
 
             token_ids_tensor = torch.cat((token_ids_tensor, idx_next), dim=-1)
         self.train()
-        return token_ids_tensor
+        return "".join(self.tokenizer.decode(token_ids_tensor.squeeze(0).tolist()))
 
+
+def load_scratch_model(
+    embed_dim,
+    n_heads,
+    n_layers,
+    block_size,
+    dropout,
+    tokenizer,
+    device,
+    model_path,
+):
+    model = NanoLLMScratch(
+        tokenizer=tokenizer,
+        max_seq_len=block_size,
+        embed_dim=embed_dim,
+        n_heads=n_heads,
+        n_layers=n_layers,
+        dropout=dropout,
+    )
+    checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    state_dict = checkpoint["model_state_dict"]
+    model.load_state_dict(state_dict=state_dict)
+    model.to(device=device)
+
+    return model

@@ -1,5 +1,6 @@
-import re 
+import re
 from pathlib import Path
+
 
 def clean_data(path:Path):
     text = path.read_text(encoding='utf-8')

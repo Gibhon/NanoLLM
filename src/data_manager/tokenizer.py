@@ -1,4 +1,4 @@
-class CharTokenizer():
+class CharTokenizer:
     def __init__(self, data:list):
         vocab = sorted(set(data))
         self.vocab_size = len(vocab)
