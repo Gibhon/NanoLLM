@@ -1,9 +1,7 @@
 import time
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 import torch
 from tqdm import tqdm
 
@@ -18,7 +16,9 @@ def train_and_val(
     val_loader,
     device,
     model_path,
+    type
 ):
+    print(f"Training {type} on {device}")
     start = time.time()
     loss_history = {"train_loss": [], "val_loss": []}
     min_train_loss = float("inf")
@@ -55,8 +55,7 @@ def train_and_val(
 
             avg_train_loss = total_train_loss / len(train_loader)
             loss_history["train_loss"].append(avg_train_loss)
-            if avg_train_loss < min_train_loss:
-                min_train_loss = avg_train_loss
+            min_train_loss = min(min_train_loss, avg_train_loss)
 
             model.eval()
             total_val_loss = 0
